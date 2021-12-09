@@ -66,7 +66,7 @@ Ports = app()
 
 @Ports.route("/")
 def index():
-  tools.render_template("index.html")
+  return tools.render_template("index.html")
 
 Ports.run("0.0.0.0",8080)
 ```
