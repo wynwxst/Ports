@@ -517,10 +517,10 @@ class Ports:
         filename = filename.replace("/","")
         filename = f"/{filename}"
         # keyerror cuz doesn't become just /hello
-        if Ports.rargs[method][filename] != []:
-          temp = temp.split("/")
-          print("xx")
-          print(temp)
+        #if Ports.rargs[method][filename] != []:
+          #temp = temp.split("/")
+          #print("xx")
+          #print(temp)
 
       if Ports.config["static"]:
         try:
