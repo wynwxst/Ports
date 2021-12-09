@@ -221,9 +221,9 @@ HandlerT = Callable[[Request], Response]
 
 
 class Core:
-  def add_route(name: str, method: str, path: str, handler: RouteHandlerT) -> None:
+  def add_route(name: str, method: str, path: str,args, handler: RouteHandlerT) -> None:
           l = ""
-          args = []
+          
           if name == None:
             name = path
           assert path.startswith("/"), "paths must start with '/'"
@@ -234,7 +234,7 @@ class Core:
           for segment in path.split("/")[1:]:
               if segment.startswith("{") and segment.endswith("}"):
                   segment_name = segment[1:-1]
-                  args.append(segment_name)
+                  #args.append(segment_name)
                   route_template += f"/(?P<{segment_name}>[^/]+)"
               else:
                   route_template += f"/{segment}"
@@ -260,11 +260,13 @@ class Core:
           
         
 
-  def lookup(method: str, path: str) -> Optional[HandlerT]:
+  def lookup(method: str, path: str,args) -> Optional[HandlerT]:
+      if args == None:
+        args = {}
       if path in Ports.routes[method]:
           route_re, handler = Ports.routes[method][path]
-          params = {}
-          x = partial(handler, **params)
+          args = args
+          x = partial(handler, **args)
           return x
       return None
 
@@ -470,30 +472,53 @@ class Ports:
   
   def route(
           path: str,
+          args = [],
           method: str = "GET",
           name: Optional[str] = None,
   ) -> Callable[[RouteHandlerT], RouteHandlerT]:
       
       def decorator(handler: RouteHandlerT) -> RouteHandlerT:
 
-          Core.add_route(name,method, path, handler)
+          Core.add_route(name,method, path, args, handler)
           return handler
       return decorator
 
-  def __call__(method,path) -> Response:
-      handler = Core.lookup(method, path)
+  def __call__(method,path,args) -> Response:
+      handler = None
+      if args == []:
+        handler = Core.lookup(method, path,None)
+      else:
+        handler = "frenchbabyseal"
+
+      e = Ports.rargs[method][path] == []
+        
+
+      
 
       if handler is None:
           print("No handler")
           return "HTTP/1.0 404 NOT FOUND\n\nRoute Not Found"
-      if Ports.rargs[method][path] == []:
+      if e == True:
         return handler()
       else:
-        args = []
-        amt = 0
+        dargs = {}
         for arg in Ports.rargs[method][path]:
-          args.append(path[amt+1])
-        return handler(args)
+          if len(args) == 1:
+            for item in args:
+              l = item.split("=")
+              dargs[l[0]] = l[1]
+          else:
+            lis = "".join(args)
+            lis.split("&")
+            for item in lis:
+              l = item.split("=")
+              dargs[l[0]] = l[1]
+        handler = Core.lookup(method, path,dargs)
+
+
+
+
+        return handler()
 
 
 
@@ -503,6 +528,7 @@ class Ports:
 
 
   def handle_request(request):
+      args = None
       """Handles the HTTP request."""
 
       headers = request.split('\n')
@@ -511,16 +537,19 @@ class Ports:
       print(headers[0])
       method = headers[0].split()
       method = method[0]
-      if filename.endswith("/"):
-        temp = filename
+      if "?" in filename:
+        args = filename.split("?")
+        filename = args[0]
+        args = [args[1]]
         
-        filename = filename.replace("/","")
-        filename = f"/{filename}"
+      else:
+        args = []
+      if filename.endswith("/") and filename != "/":
+        filename = filename[:-1]
+        args = []
+
         # keyerror cuz doesn't become just /hello
-        #if Ports.rargs[method][filename] != []:
-          #temp = temp.split("/")
-          #print("xx")
-          #print(temp)
+
 
       if Ports.config["static"]:
         try:
@@ -536,7 +565,7 @@ class Ports:
         
       else:
 
-        print(f"PATH:'{filename}'")
+        print(f"PATH:'{filename}' | ARGS:'{args}'")
         if filename not in Ports.routes[method]:
           print("NonExistent")
           response = 'HTTP/1.0 404 NOT FOUND\n\nRoute Not Found'
@@ -552,7 +581,8 @@ class Ports:
               response = 'HTTP/1.0 200 OK\n\n' + content
             else:
               try:
-                response = Ports.__call__(method,filename)
+                
+                response = Ports.__call__(method,filename,args)
                 response = "HTTP/1.0 200 OK\n\n" + response
               except Exception as e:
                 response = Response(status="500 Internal Server Error", content="Internal Error")

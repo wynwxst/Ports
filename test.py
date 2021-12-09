@@ -10,12 +10,27 @@ def index():
   C["hi"] = "ello"
   return tools.render_template("index.html")
 
+@Ports.route("/hi/bye/")
+def hibye():
+  return "hi bye!"
 
-@Ports.route("/hello/{name}")
-def hello(name):
+@Ports.route("/hello/",args=["name"])
+def hello(**args):
+  params = args
+  name = ":("
+
+  if params == {} or params == None:
+    name = ""
+  elif "name" not in params:
+    name = "NOT GIVEN :("
+  else:
+    name = params["name"]
   return f"hello {name}"
 
+
 Ports.env["todo"] = "ADD {} ARGS"
+
+Ports.env["todo"] = "dargs partial 2nd arg on it"
 
 ls = localStorage("webserve.ehnryu.repl.co")
 
