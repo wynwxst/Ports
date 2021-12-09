@@ -1,6 +1,11 @@
 # PORTS
 The modern flask alternative
 
+# Installation
+Simply install python and type `pip install PortsPy`
+
+# Usage
+
 Start a static server in three lines:
 ```python
 from main import app, static_app
