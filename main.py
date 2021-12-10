@@ -19,6 +19,7 @@ import sqlite3
 import logging
 from queue import Empty, Queue
 from threading import Thread
+import sys
 
 
 
@@ -27,7 +28,14 @@ from threading import Thread
 
 
 
-
+def getlocalhost():
+  plat = sys.platform
+  print(f"Launching on {plat}...")
+  if plat.startswith("win"):
+    plat = "127.0.0.1"
+  else:
+    plat = "0.0.0.0"
+  return plat
 
 
 
@@ -589,8 +597,8 @@ class Ports:
 
 
 
-  def run(host="0.0.0.0", port=random.randint(1000,9000), worker_count=16) -> int:
-      server = HTTPServer()
+  def run(host=getlocalhost(), port=random.randint(1000,9000), worker_count=16) -> int:
+      server = HTTPServer(host,port,worker_count)
       server.mount("", app)
       server.serve_forever()
       return 0
