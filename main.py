@@ -234,7 +234,7 @@ HandlerT = Callable[[Request], Response]
 class Core:
   def add_route(name: str, method: str, path: str,args, handler: RouteHandlerT) -> None:
           l = ""
-          
+
           if name == None:
             name = path
           assert path.startswith("/"), "paths must start with '/'"
@@ -258,18 +258,18 @@ class Core:
             name = l
 
           if name != "/" and name.endswith("/"):
-          
-            name = name[:-1]
-          
 
-          
+            name = name[:-1]
+
+
+
 
           Ports.routes[method][name] = route_re, handler
           Ports.templates[method][name] = ""
           Ports.rargs[method][name] = args
           Ports.route_names.append(name)
-          
-        
+
+
 
   def lookup(method: str, path: str,args) -> Optional[HandlerT]:
       if args == None:
@@ -311,7 +311,7 @@ class BasicStorageBackend:
 
     def clear(self) -> None:
         self.raise_dummy_exception()
-        
+
 
 class TextStorageBackend(BasicStorageBackend):
     def __init__(self, app_namespace: str) -> None:
@@ -338,7 +338,7 @@ class TextStorageBackend(BasicStorageBackend):
         with open(item_path, "w") as item_file:
             item_file.write(str(value))
 
-    def remove_item(self, key: str) -> None: 
+    def remove_item(self, key: str) -> None:
         item_path = self.get_file_path(key)
         if os.path.isfile(item_path):
             os.remove(item_path)
@@ -363,7 +363,7 @@ class SQLiteStorageBackend(BasicStorageBackend):
     def create_default_tables(self) -> None:
         self.db_cursor.execute("CREATE TABLE localStoragePy (key TEXT PRIMARY KEY, value TEXT)")
         self.db_connection.commit()
-        
+
     def get_item(self, key: str) -> str:
         fetched_value = self.db_cursor.execute("SELECT value FROM localStoragePy WHERE key = ?", (key,)).fetchone()
         if type(fetched_value) is tuple:
@@ -398,7 +398,7 @@ class JSONStorageBackend(BasicStorageBackend):
 
         with open(self.json_path, "r") as json_file:
             self.json_data = json.load(json_file)
-        
+
     def commit_to_disk(self):
         with open(self.json_path, "w") as json_file:
             json.dump(self.json_data, json_file)
@@ -412,7 +412,7 @@ class JSONStorageBackend(BasicStorageBackend):
         self.json_data[key] = str(value)
         self.commit_to_disk()
 
-    def remove_item(self, key: str) -> None: 
+    def remove_item(self, key: str) -> None:
         self.json_data.pop(key)
         self.commit_to_disk()
 
@@ -421,7 +421,7 @@ class JSONStorageBackend(BasicStorageBackend):
             os.remove(self.json_path)
         self.json_data = {}
         self.commit_to_disk()
-    
+
 class localStorage:
     def __init__(self, app_namespace: str, storage_backend: str = "json") -> None:
         self.storage_backend_instance = BasicStorageBackend(app_namespace)
@@ -446,7 +446,7 @@ class localStorage:
     def clear(self):
         self.storage_backend_instance.clear()
 
-    
+
 
 class tools:
   def render_template(template,method="GET"):
@@ -470,19 +470,19 @@ class Ports:
   db = {}
 
 
-  
 
 
 
 
-  
+
+
   def route(
           path: str,
           args = [],
           method: str = "GET",
           name: Optional[str] = None,
   ) -> Callable[[RouteHandlerT], RouteHandlerT]:
-      
+
       def decorator(handler: RouteHandlerT) -> RouteHandlerT:
 
           Core.add_route(name,method, path, args, handler)
@@ -497,9 +497,9 @@ class Ports:
         handler = "frenchbabyseal"
 
       e = Ports.rargs[method][path] == []
-        
 
-      
+
+
 
       if handler is None:
           print("No handler")
@@ -529,7 +529,7 @@ class Ports:
 
 
 
-  
+
 
 
 
@@ -544,7 +544,7 @@ class Ports:
         args = filename.split("?")
         filename = args[0]
         args = [args[1]]
-        
+
       else:
         args = []
       if filename.endswith("/") and filename != "/":
@@ -565,7 +565,7 @@ class Ports:
         except FileNotFoundError:
           response = 'File Not Found'
 
-        
+
       else:
 
         print(f"PATH:'{filename}' | ARGS:'{args}'")
@@ -584,10 +584,11 @@ class Ports:
               response = '' + content
             else:
               try:
-                
+
                 response = Ports.__call__(method,filename,args)
                 response = "" + response
               except Exception as e:
+                print(e)
                 response = Response(status="500 Internal Server Error", content="Internal Error")
           except FileNotFoundError:
               print("FNF")
@@ -680,7 +681,7 @@ class HTTPServer:
         prefixes are tested in the order that they are added so the
         first match "wins".
         """
-        
+
         self.handlers.append((path_prefix, handler))
 
     def serve_forever(self) -> None:
@@ -701,6 +702,8 @@ class HTTPServer:
                 try:
                     self.connection_queue.put(server_sock.accept())
                 except KeyboardInterrupt:
+                    server_sock.close()
+                    worker.stop()
                     break
 
         for worker in workers:
