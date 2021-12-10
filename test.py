@@ -1,13 +1,11 @@
 from main import app, static_app,Core, localStorage
 from main import tools
+import main
 
 Ports = app()
 
 @Ports.route("/")
 def index():
-  from http import cookies
-  C = cookies.SimpleCookie()
-  C["hi"] = "ello"
   return tools.render_template("index.html")
 
 @Ports.route("/hi/bye/")
@@ -28,9 +26,9 @@ def hello(**args):
   return f"hello {name}"
 
 
-Ports.env["todo"] = "ADD {} ARGS"
+Ports.db["todo"] = "ADD HTTPSEVER()"
 
-Ports.env["todo"] = "dargs partial 2nd arg on it"
+
 
 ls = localStorage("webserve.ehnryu.repl.co")
 
@@ -41,4 +39,4 @@ ls = localStorage("webserve.ehnryu.repl.co")
 
 
 
-Ports.run("0.0.0.0",8080)
+Ports.run()

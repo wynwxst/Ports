@@ -2,18 +2,23 @@
  Implements a simple HTTP/1.0 Server
 
 """
-from typing import Callable, Dict, Optional, Pattern, Set, Tuple
+from typing import Callable, Dict, Optional, Pattern, Set, Tuple, List
 import re
-
 import socket
 import json
-
 import io
-import socket
 import typing
 from functools import partial
-
+import random
 from collections import defaultdict
+import os
+import stat
+import pathlib
+import shutil
+import sqlite3
+import logging
+from queue import Empty, Queue
+from threading import Thread
 
 
 
@@ -148,10 +153,8 @@ def iter_lines(sock: socket.socket, bufsize: int = 16_384) -> typing.Generator[b
                 yield line
             except (IndexError, ValueError):
                 break
-import io
-import os
-import socket
-import typing
+
+
 
 
 
@@ -270,12 +273,7 @@ class Core:
           return x
       return None
 
-import os
-import json
-import stat
-import pathlib
-import shutil
-import sqlite3
+
 
 
 class localStoragePyStorageException(Exception):
@@ -497,7 +495,7 @@ class Ports:
 
       if handler is None:
           print("No handler")
-          return "HTTP/1.0 404 NOT FOUND\n\nRoute Not Found"
+          return "Route Not Found"
       if e == True:
         return handler()
       else:
@@ -528,15 +526,12 @@ class Ports:
 
 
   def handle_request(request):
+      filename = request.path
+      method = request.method
       args = None
       """Handles the HTTP request."""
 
-      headers = request.split('\n')
-      
-      filename = headers[0].split()[1]
-      print(headers[0])
-      method = headers[0].split()
-      method = method[0]
+      print(f"{request.method} {request.path}")
       if "?" in filename:
         args = filename.split("?")
         filename = args[0]
@@ -558,9 +553,9 @@ class Ports:
           fin = open('www/' + filename)
           content = fin.read()
           fin.close()
-          response = 'HTTP/1.0 200 OK\n\n' + content
+          response = '' + content
         except FileNotFoundError:
-          response = 'HTTP/1.0 404 NOT FOUND\n\nFile Not Found'
+          response = 'File Not Found'
 
         
       else:
@@ -568,7 +563,7 @@ class Ports:
         print(f"PATH:'{filename}' | ARGS:'{args}'")
         if filename not in Ports.routes[method]:
           print("NonExistent")
-          response = 'HTTP/1.0 404 NOT FOUND\n\nRoute Not Found'
+          response = 'Route Not Found'
         else:
 
 
@@ -578,50 +573,133 @@ class Ports:
               content = fin.read()
               fin.close()
 
-              response = 'HTTP/1.0 200 OK\n\n' + content
+              response = '' + content
             else:
               try:
                 
                 response = Ports.__call__(method,filename,args)
-                response = "HTTP/1.0 200 OK\n\n" + response
+                response = "" + response
               except Exception as e:
                 response = Response(status="500 Internal Server Error", content="Internal Error")
           except FileNotFoundError:
               print("FNF")
-              response = 'HTTP/1.0 404 NOT FOUND\n\nRoute Not Found'
+              response = 'Route Not Found'
 
       return response
 
 
 
-  def run(SERVER_HOST,SERVER_PORT):
-    Ports.config["host"] = SERVER_HOST
-    Ports.config["port"] = SERVER_PORT
+  def run(host="0.0.0.0", port=random.randint(1000,9000), worker_count=16) -> int:
+      server = HTTPServer()
+      server.mount("", app)
+      server.serve_forever()
+      return 0
 
-    # Create socket
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind((SERVER_HOST, SERVER_PORT))
-    server_socket.listen(1)
-    print('Listening on port %s ...' % SERVER_PORT)
+LOGGER = logging.getLogger(__name__)
 
-    while True:
-        # Wait for client connections
-        client_connection, client_address = server_socket.accept()
+class HTTPWorker(Thread):
+    def __init__(self, connection_queue: Queue, handlers: List[Tuple[str, HandlerT]]) -> None:
+        super().__init__(daemon=True)
 
-        # Get the client request
-        request = client_connection.recv(1024).decode()
+        self.connection_queue = connection_queue
+        self.handlers = handlers
+        self.running = False
 
-        # Return an HTTP response
-        response = Ports.handle_request(request)
-        client_connection.sendall(response.encode())
+    def stop(self) -> None:
+        self.running = False
 
-        # Close connection
-        client_connection.close()
+    def run(self) -> None:
+        self.running = True
+        while self.running:
+            try:
+                client_sock, client_addr = self.connection_queue.get(timeout=1)
+            except Empty:
+                continue
 
-    # Close socket
-    server_socket.close()
+            try:
+                self.handle_client(client_sock, client_addr)
+            except Exception:
+                LOGGER.exception("Unhandled error in handle_client.")
+                continue
+            finally:
+                self.connection_queue.task_done()
 
+    def handle_client(self, client_sock: socket.socket, client_addr: typing.Tuple[str, int]) -> None:
+        with client_sock:
+            try:
+                request = Request.from_socket(client_sock)
+            except Exception:
+                LOGGER.warning("Failed to parse request.", exc_info=True)
+                response = Response(status="400 Bad Request", content="Bad Request")
+                response.send(client_sock)
+                return
+
+            # Force clients to send their request bodies on every
+            # request rather than making the handlers deal with this.
+            if "100-continue" in request.headers.get("expect", ""):
+                response = Response(status="100 Continue")
+                response.send(client_sock)
+
+            for path_prefix, handler in self.handlers:
+                if request.path.startswith(path_prefix):
+                    try:
+                        request = request._replace(path=request.path[len(path_prefix):])
+                        response = Ports.handle_request(request)
+                        response = Response(status="200 OK",content=response)
+                        response.send(client_sock)
+                    except Exception as e:
+                        LOGGER.exception("Unexpected error from handler %r.", handler)
+                        response = Response(status="500 Internal Server Error", content="Internal Error")
+                        response.send(client_sock)
+                    finally:
+                        break
+            else:
+                response = Response(status="404 Not Found", content="Not Found")
+                response.send(client_sock)
+
+
+class HTTPServer:
+    def __init__(self, host="0.0.0.0", port=9000, worker_count=16) -> None:
+        self.handlers: List[Tuple[str, HandlerT]] = []
+        self.host = host
+        self.port = port
+        self.worker_count = worker_count
+        self.worker_backlog = worker_count * 8
+        self.connection_queue: Queue = Queue(self.worker_backlog)
+
+    def mount(self, path_prefix: str, handler: HandlerT) -> None:
+        """Mount a request handler at a particular path.  Handler
+        prefixes are tested in the order that they are added so the
+        first match "wins".
+        """
+        
+        self.handlers.append((path_prefix, handler))
+
+    def serve_forever(self) -> None:
+        workers = []
+        for _ in range(self.worker_count):
+            worker = HTTPWorker(self.connection_queue, self.handlers)
+            worker.start()
+            workers.append(worker)
+
+        with socket.socket() as server_sock:
+            server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            server_sock.bind((self.host, self.port))
+            server_sock.listen(self.worker_backlog)
+            LOGGER.info("Listening on %s:%d...", self.host, self.port)
+            print(f"Listening on {self.host}:{self.port}...")
+
+            while True:
+                try:
+                    self.connection_queue.put(server_sock.accept())
+                except KeyboardInterrupt:
+                    break
+
+        for worker in workers:
+            worker.stop()
+
+        for worker in workers:
+            worker.join(timeout=30)
 
 
 def app(name=""):
