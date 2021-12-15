@@ -2,14 +2,14 @@
 The modern flask alternative
 
 # Installation
-Simply install python and type `pip install PortsPy`
+Simply install python and type `pip install Ports.py`
 
 # Usage
 
 Start a static server in three lines:
 ```python
-from main import app, static_app
-Ports = static_app()
+from main import APP, static_APP
+Ports = static_APP()
 Ports.run("0.0.0.0",8080)
 ```
 then all files in `www/` will be hosted
@@ -96,3 +96,16 @@ def index(**args): # by default args will return {}
 
 Ports.run("0.0.0.0",8080)
 ```
+
+Send file:
+```python
+from ports import APP,tools
+app = APP()
+
+@app.route("/")
+def index():
+  tools.send_file("file.txt")
+```
+
+
+
