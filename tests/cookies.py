@@ -1,19 +1,16 @@
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ports import APP, static_APP
 
 
 
-Ports = APP()
+app = APP()
 
-@Ports.route("/")
+@app.route("/")
 def index():
-  cookiejar = Ports.Cookies.get_all() # return in json name:value
-  value = Ports.Cookies.get("username")
-  print(Ports.cookiejar)
-  print(cookiejar)
-  if "username" in cookiejar:
-    Ports.Cookies.delete("username")
-  else:
-    Ports.Cookies.set("username","example")
-  return "set"
+  
+  return str(app.Cookies.get_all())
+  
 
-Ports.run("0.0.0.0",8080)
+app.run("0.0.0.0",8080)

@@ -633,6 +633,7 @@ class Ports:
       cookiejar = Ports.cookiejar
       cookiejar = "".join(cookiejar)
       cookiejar = cookiejar.split("; ")
+
       
 
       for cookie in cookiejar:
@@ -644,12 +645,13 @@ class Ports:
         value = cks[1]
         cookiez[name] = value
       return cookiez
-    def get(name):
+    def get(namer):
       cookiez = {}
 
       cookiejar = Ports.cookiejar
       cookiejar = "".join(cookiejar)
       cookiejar = cookiejar.split("; ")
+
 
       for cookie in cookiejar:
         if cookiejar == [''] or cookiejar == []:
@@ -659,9 +661,9 @@ class Ports:
         name = cks[0]
         value = cks[1]
         cookiez[name] = value
-      if name not in cookies:
+      if namer not in cookiez:
         return "Cookie not found"
-      return str(cookiez[name])
+      return str(cookiez[namer])
 
 
 
