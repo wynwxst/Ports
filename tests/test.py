@@ -1,18 +1,18 @@
-from main import APP, static_APP,Core, localStorage
-from main import tools
-import main
+from ports import APP, static_APP,Core, localStorage
+from ports import tools
+import ports
 
-Ports = APP()
+app = APP()
 
-@Ports.route("/")
+@app.route("/")
 def index():
   return tools.render_template("index.html",{"ip":tools.get_addr()})
 
-@Ports.route("/hi/bye/")
+@app.route("/hi/bye/")
 def hibye():
   return "hi bye!"
 
-@Ports.route("/hello/",args=["name"])
+@app.route("/hello/",args=["name"])
 def hello(**args):
   params = args
   name = ":("
@@ -24,6 +24,10 @@ def hello(**args):
   else:
     name = params["name"]
   return f"hello {name}"
+
+@app.route("/favicon.ico")
+def favicon():
+  return tools.send_file("www/indra.jpg")
 
 
 
@@ -39,4 +43,4 @@ ls = localStorage("webserve.ehnryu.repl.co")
 
 
 
-Ports.run()
+app.run()
