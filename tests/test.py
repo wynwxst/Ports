@@ -5,6 +5,7 @@ import ports
 app = APP()
 app.db["todo"] = {}
 app.db["todo"]["1"] = "Add debug mode"
+app.db["todo"]["2"] = "Add markdown support"
 
 @app.route("/")
 def index():

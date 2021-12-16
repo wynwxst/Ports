@@ -614,6 +614,7 @@ class Ports:
         now = datetime.now()
         exp = now + datetime.timedelta(seconds = expiry)
         x = f"Set-Cookie: {name}={value}; Expires={exp}; Path={Ports.path}"
+      Ports.headers.append(x)
       
       
 
@@ -649,7 +650,7 @@ class Ports:
       cookiejar = cookiejar.split("; ")
 
       for cookie in cookiejar:
-        if cookiejar == ['']:
+        if cookiejar == [''] or cookiejar == []:
           return "No Cookies stored"
         
         cks = cookie.split("=")

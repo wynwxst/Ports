@@ -6,10 +6,11 @@ Ports = APP()
 
 @Ports.route("/")
 def index():
-  cokiejar = Ports.Cookies.get() # return in json name:value
+  cookiejar = Ports.Cookies.get_all() # return in json name:value
+  value = Ports.Cookies.get("pwd")
   if "username" in cookiejar:
     Ports.Cookies.delete("username")
   else:
-    Ports.cookies.set("username","example")
+    Ports.Cookies.set("username","example")
 
 Ports.run("0.0.0.0",8080)
