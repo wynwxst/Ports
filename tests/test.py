@@ -1,12 +1,12 @@
-from main import app, static_app,Core, localStorage
+from main import APP, static_APP,Core, localStorage
 from main import tools
 import main
 
-Ports = app()
+Ports = APP()
 
 @Ports.route("/")
 def index():
-  return tools.render_template("index.html")
+  return tools.render_template("index.html",{"ip":tools.get_addr()})
 
 @Ports.route("/hi/bye/")
 def hibye():
