@@ -629,21 +629,23 @@ class Ports:
 
       Ports.headers.append(x)
     def get_all():
-      cookies = {}
+      cookiez = {}
       cookiejar = Ports.cookiejar
       cookiejar = "".join(cookiejar)
       cookiejar = cookiejar.split("; ")
+      
 
       for cookie in cookiejar:
-        if cookiejar == ['']:
+        if cookiejar == [''] or cookiejar == []:
           return "No Cookies stored"
         
         cks = cookie.split("=")
         name = cks[0]
         value = cks[1]
-        cookies[name] = value
+        cookiez[name] = value
+      return cookiez
     def get(name):
-      cookies = {}
+      cookiez = {}
 
       cookiejar = Ports.cookiejar
       cookiejar = "".join(cookiejar)
@@ -656,10 +658,10 @@ class Ports:
         cks = cookie.split("=")
         name = cks[0]
         value = cks[1]
-        cookies[name] = value
+        cookiez[name] = value
       if name not in cookies:
         return "Cookie not found"
-      return str(cookies[name])
+      return str(cookiez[name])
 
 
 
