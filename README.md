@@ -8,7 +8,7 @@ Simply install python and type `pip install PortsPy`
 
 Start a static server in three lines:
 ```python
-from main import APP, static_APP
+from ports import APP, static_APP
 Ports = static_APP()
 Ports.run("0.0.0.0",8080)
 ```

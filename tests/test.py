@@ -3,6 +3,8 @@ from ports import tools
 import ports
 
 app = APP()
+app.db["todo"] = {}
+app.db["todo"]["1"] = "Add debug mode"
 
 @app.route("/")
 def index():
@@ -11,6 +13,14 @@ def index():
 @app.route("/hi/bye/")
 def hibye():
   return "hi bye!"
+
+@app.route("/todo/")
+def todo():
+  tr = ""
+  for item in app.db["todo"]:
+    val = app.db["todo"][item]
+    tr += f"\n<p>{item}. {val}</p>\n"
+  return tr
 
 @app.route("/hello/",args=["name"])
 def hello(**args):
