@@ -2,9 +2,10 @@
  Implements a simple HTTP/1.0 Server
 
 """
-from typing import Callable, Dict, Optional, Pattern, Set, Tuple, List
+from typing import Callable, Dict, Optional, Pattern, Set, Tuple, List, Union
 import re
 import socket
+import requests
 import json
 import io
 import typing
@@ -20,8 +21,18 @@ import logging
 from queue import Empty, Queue
 from threading import Thread
 import sys
+import functools
+import mimetypes
+from datetime import datetime
 
 
+
+FILE_RESPONSE_TEMPLATE = """\
+HTTP/1.1 200 OK
+Content-type: {content_type}
+Content-length: {content_length}
+
+""".replace("\n", "\r\n")
 
 
 
@@ -38,6 +49,7 @@ def getlocalhost():
   return plat
 
 
+      
 
 
 class Headers:
@@ -182,6 +194,8 @@ class Response:
     status: bytes
     headers: Headers
     body: typing.IO[bytes]
+    h = []
+    stat = None
 
     def __init__(
             self,
@@ -192,39 +206,65 @@ class Response:
             encoding: str = "utf-8"
     ) -> None:
 
+       
+
+
+
         self.status = status.encode()
         self.headers = headers or Headers()
-
-        if content is not None:
-            self.body = io.BytesIO(content.encode(encoding))
-        elif body is None:
-            self.body = io.BytesIO()
+        if Response.stat == None:
+          self.status = status.encode()
         else:
-            self.body = body
+          self.status = Response.stat.encode()
+
+        if Ports.sendrn == False:
+
+          if content is not None:
+              self.body = io.BytesIO(content.encode(encoding))
+          elif body is None:
+              self.body = io.BytesIO()
+          else:
+              self.body = body
+        else:
+          self.content = content
+
+
+          #self.content = bytes(content.encode(encoding))
 
     def send(self, sock: socket.socket) -> None:
         """Write this response to a socket.
         """
-        content_length = self.headers.get_int("content-length")
-        if content_length is None:
-            try:
-                body_stat = os.fstat(self.body.fileno())
-                content_length = body_stat.st_size
-            except OSError:
-                self.body.seek(0, os.SEEK_END)
-                content_length = self.body.tell()
-                self.body.seek(0, os.SEEK_SET)
+        if Ports.sendrn == False:
 
-            if content_length > 0:
-                self.headers.add("content-length", str(content_length))
+          content_length = self.headers.get_int("content-length")
+          if content_length is None:
+              try:
+                  body_stat = os.fstat(self.body.fileno())
+                  content_length = body_stat.st_size
+              except OSError:
+                  self.body.seek(0, os.SEEK_END)
+                  content_length = self.body.tell()
+                  self.body.seek(0, os.SEEK_SET)
 
-        headers = b"HTTP/1.1 " + self.status + b"\r\n"
-        for header_name, header_value in self.headers:
-            headers += f"{header_name}: {header_value}\r\n".encode()
+              if content_length > 0:
+                  self.headers.add("content-length", str(content_length))
 
-        sock.sendall(headers + b"\r\n")
-        if content_length > 0:
-            sock.sendfile(self.body)  # type: ignore
+
+          headers = b"HTTP/1.1 " + self.status + b"\r\n"
+          for header_name, header_value in self.headers:
+              
+              headers += f"{header_name}: {header_value}\r\n".encode()
+          for head in Ports.headers:
+            headers += f"{head}\r\n".encode()
+
+          sock.sendall(headers + b"\r\n")
+          if content_length > 0:
+              sock.sendfile(self.body) 
+           # type: ignore
+        else:
+          ok = "frenchbabyseal"
+
+          #add_file("indra.jpg",sock,"indra.jpg")
 
 RouteHandlerT = Callable[..., Response]
 
@@ -232,7 +272,7 @@ HandlerT = Callable[[Request], Response]
 
 
 class Core:
-  def add_route(name: str, method: str, path: str,args, handler: RouteHandlerT) -> None:
+  def add_route(name: str, methods: str, path: str,args, handler: RouteHandlerT) -> None:
           l = ""
 
           if name == None:
@@ -261,12 +301,19 @@ class Core:
 
             name = name[:-1]
 
+          for method in methods:
+            if method not in Ports.rargs and Ports.routes and Ports.templates:
+              Ports.rargs[method] = {}
+              Ports.templates[method] = {}
+              Ports.routes[method] = {}
 
 
 
-          Ports.routes[method][name] = route_re, handler
-          Ports.templates[method][name] = ""
-          Ports.rargs[method][name] = args
+
+
+            Ports.routes[method][name] = route_re, handler
+            Ports.templates[method][name] = ""
+            Ports.rargs[method][name] = args
           Ports.route_names.append(name)
 
 
@@ -449,18 +496,92 @@ class localStorage:
 
 
 class tools:
-  def render_template(template,method="GET"):
+  def add_file(path,sock,aath=None):
+    path = f"{path}"
+    with open(path, "rb") as f:
+      stat = os.fstat(f.fileno())
+      content_type, encoding = mimetypes.guess_type(path)
+      if content_type is None:
+          content_type = "application/octet-stream"
+    
+      if encoding is not None:
+          content_type += f"; charset={encoding}"
+    
+      response_headers = FILE_RESPONSE_TEMPLATE.format(
+          content_type=content_type,
+          content_length=stat.st_size,
+      ).encode("ascii")
+    
+      sock.sendall(response_headers)
+      sock.sendfile(f)
+  def get_addr():
+    return str(Ports.client["ip"])
+  def get_hostname():
+    return str(Ports.client["name"])
+  def send_file(file):
+    Ports.sendrn = True
+    tools.add_file(file,Ports.sock)
+    return ""
+    
+
+  def render_template(template,vars={}):
     fin = open('templates/' + template)
     content = fin.read()
+    amt = 0
+    finder = open('templates/' + template)
+    lines = finder.readlines()
+    lvars = {}
+    found = False
+    func = ""
+    for line in lines:
+      line = line.replace("\n","")
+      
+
+      amt += 1
+      locl = {}
+      fund = False
+      if found == True:
+        if line.startswith("|\|"):
+          exec(func,{},locl)
+          lvars[str(amt)] = locl
+          func = ""
+          fund = True
+          
+        else:
+          content = content.replace(f"{line}\n","")
+          func += line
+      if line != "\n" and found == False:
+        
+        if line.startswith("|\|"):
+          found = True
+          fund = False
+      if fund == True:
+        found = False
+    for item in vars:
+      content = content.replace(f"[[{item}]]",str(vars[item]))
+
+    for itee in lvars:
+      for var in lvars[itee]:
+        content = content.replace(f"[[{var}]]",str(lvars[itee][var]))
+    content = content.replace("|\|\n","")
+
+
+
+      
+
     fin.close()
 
     response = content
     return response
+  def jsonify(content):
+
+      return str(content)
+
 
 class Ports:
 
   #Databases
-
+  sock = ""
   env = {}
   config = {}
   routes = {"GET":{},"POST":{}}
@@ -468,9 +589,76 @@ class Ports:
   templates = {"GET":{},"POST":{}}
   rargs = {"GET":{},"POST":{}}
   db = {}
+  cookies = {}
+  path = ""
+  method = ""
+  headers = []
+  client = {}
+  heads = ""
+  location = ""
+  cookiejar = ""
+  Request = ""
+  Headers = ""
+  sendrn = False
 
 
 
+
+  class Cookies:
+    
+    def set(name,value,expiry=None):
+      x = ""
+      if expiry == None:
+        x = f"Set-Cookie: {name}={value}"
+      else:
+        now = datetime.now()
+        exp = now + datetime.timedelta(seconds = expiry)
+        x = f"Set-Cookie: {name}={value}; Expires={exp}; Path={Ports.path}"
+      
+      
+
+    def delete(name):
+      exp = "Thu, 01 Jan 1970 00:00:00 GMT;"
+      value = "deleted"
+      x = ""
+
+
+
+      x = f"Set-Cookie: {name}={value}; expires={exp}; Path={Ports.path}"
+
+      Ports.headers.append(x)
+    def get_all():
+      cookies = {}
+      cookiejar = Ports.cookiejar
+      cookiejar = "".join(cookiejar)
+      cookiejar = cookiejar.split("; ")
+
+      for cookie in cookiejar:
+        if cookiejar == ['']:
+          return "No Cookies stored"
+        
+        cks = cookie.split("=")
+        name = cks[0]
+        value = cks[1]
+        cookies[name] = value
+    def get(name):
+      cookies = {}
+
+      cookiejar = Ports.cookiejar
+      cookiejar = "".join(cookiejar)
+      cookiejar = cookiejar.split("; ")
+
+      for cookie in cookiejar:
+        if cookiejar == ['']:
+          return "No Cookies stored"
+        
+        cks = cookie.split("=")
+        name = cks[0]
+        value = cks[1]
+        cookies[name] = value
+      if name not in cookies:
+        return "Cookie not found"
+      return str(cookies[name])
 
 
 
@@ -479,13 +667,13 @@ class Ports:
   def route(
           path: str,
           args = [],
-          method: str = "GET",
+          methods = ["GET"],
           name: Optional[str] = None,
   ) -> Callable[[RouteHandlerT], RouteHandlerT]:
 
       def decorator(handler: RouteHandlerT) -> RouteHandlerT:
 
-          Core.add_route(name,method, path, args, handler)
+          Core.add_route(name,methods, path, args, handler)
           return handler
       return decorator
 
@@ -544,6 +732,8 @@ class Ports:
         args = filename.split("?")
         filename = args[0]
         args = [args[1]]
+      
+      
 
       else:
         args = []
@@ -567,6 +757,9 @@ class Ports:
 
 
       else:
+        if filename.startswith("/static/"):
+          tose = filename.replace("/static/","static/")
+          return tools.send_file(f"{tose}")
 
         print(f"PATH:'{filename}' | ARGS:'{args}'")
         if filename not in Ports.routes[method]:
@@ -599,10 +792,16 @@ class Ports:
 
 
   def run(host=getlocalhost(), port=random.randint(1000,9000), worker_count=16) -> int:
-      server = HTTPServer(host,port,worker_count)
-      server.mount("", app)
-      server.serve_forever()
-      return 0
+    if "host" in Ports.config:
+      host = Ports.config["host"]
+    if "port" in Ports.config:
+      port = Ports.config["port"]
+    Ports.config["host"] = host
+    Ports.config["port"] = port
+    server = HTTPServer(host,port,worker_count)
+    server.mount("", APP)
+    server.serve_forever()
+    return 0
 
 LOGGER = logging.getLogger(__name__)
 
@@ -616,7 +815,13 @@ class HTTPWorker(Thread):
 
     def stop(self) -> None:
         self.running = False
-
+    def getsock(self) -> None:
+      while self.running:
+            try:
+                client_sock, client_addr = self.connection_queue.get(timeout=1)
+                return client_sock, client_addr
+            except Empty:
+                continue
     def run(self) -> None:
         self.running = True
         while self.running:
@@ -653,6 +858,17 @@ class HTTPWorker(Thread):
                 if request.path.startswith(path_prefix):
                     try:
                         request = request._replace(path=request.path[len(path_prefix):])
+                        Ports.Request = request
+                        Ports.sock = client_sock
+                        Ports.sendrn = False
+                        Ports.path = request.path
+                        Ports.method = request.method
+                        Ports.Headers = request.headers
+                        Ports.location = request.headers.get("host")
+                        Ports.cookiejar = request.headers.get_all("cookie")
+                        Ports.heads = request.headers._headers
+                        Ports.client["name"] = socket.gethostname()
+                        Ports.client["ip"] = request.headers.get("x-forwarded-for")
                         response = Ports.handle_request(request)
                         response = Response(status="200 OK",content=response)
                         response.send(client_sock)
@@ -713,12 +929,22 @@ class HTTPServer:
             worker.join(timeout=30)
 
 
-def app(name=""):
+
+
+        
+    
+    
+    
+
+def APP(name=__name__):
+  print(f"starting {name}!")
   Ports.config["name"] = name
   Ports.config["static"] = False
   return Ports
 
-def static_app(name=""):
+def static_APP(name=__name__):
+  print(f"starting {name}!")
   Ports.config["name"] = name
+
   Ports.config["static"] = True
   return Ports

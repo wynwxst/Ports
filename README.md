@@ -2,7 +2,7 @@
 The modern flask alternative
 
 # Installation
-Simply install python and type `pip install Ports.py`
+Simply install python and type `pip install PortsPy`
 
 # Usage
 
@@ -16,10 +16,10 @@ then all files in `www/` will be hosted
 
 Start a dynamic server:
 ```python
-from ports import app, static_app
+from ports import APP, static_APP
 
 
-Ports = app()
+Ports = APP()
 
 @Ports.route("/")
 def index():
@@ -46,10 +46,10 @@ localStorage.clear()
 
 Use a .env  and a json db system:
 ```python
-from ports import app, static_app
+from ports import APP, static_APP
 
 
-Ports = app()
+Ports = APP()
 Ports.env["key"] = "example"
 
 Ports.db["visits"] = {}
@@ -64,10 +64,10 @@ Ports.run("0.0.0.0",8080)
 
 Template rendering:
 ```python
-from ports import app, static_app, tools
+from ports import APP, static_APP, tools
 
 
-Ports = app()
+Ports = APP()
 
 @Ports.route("/")
 def index():
@@ -79,10 +79,10 @@ Renders `templates/index.html` ^
 
 Arguments:
 ```python
-from ports import app, static_app
+from ports import APP, static_APP
 
 
-Ports = app()
+Ports = APP()
 
 @Ports.route("/")
 def index(**args): # by default args will return {}
@@ -97,15 +97,37 @@ def index(**args): # by default args will return {}
 Ports.run("0.0.0.0",8080)
 ```
 
-Send file:
+Cookies:
 ```python
-from ports import APP,tools
-app = APP()
+from ports import APP, static_APP
 
-@app.route("/")
+
+
+Ports = APP()
+
+@Ports.route("/")
 def index():
-  tools.send_file("file.txt")
+  cokiejar = Ports.Cookies.get() # return in json name:value
+  if "username" in cookiejar:
+    Ports.Cookies.delete("username")
+  else:
+    Ports.cookies.set("username","example")
+
+Ports.run("0.0.0.0",8080)
 ```
 
+Send file:
+```python
+from ports import APP, static_APP
+from ports import tools
 
 
+Ports = APP()
+@Ports.route("/")
+def index():
+  return "Favicon Activated"
+@Ports.route("/favicon.ico")
+def favicon():
+  return tools.send_file("favicon.ico")
+Ports.run("0.0.0.0",8080)
+```
