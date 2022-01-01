@@ -132,3 +132,64 @@ def favicon():
   return tools.send_file("favicon.ico")
 Ports.run("0.0.0.0",8080)
 ```
+
+Extensions:
+"app.py"
+```python
+import ports
+from ports import managers
+
+app = ports.APP(__name__)
+ext = managers.extensions
+ext.register("extension.py")
+# to register all "python" files in a directory:
+#ext.regdir("extensions/")
+
+
+@app.route("/exts/")
+def exts():
+  return "try route /"
+
+
+app.run()
+```
+"extension.py"
+```python
+import ports
+from ports import managers
+
+
+
+class extension:
+  def __init__(self,app):
+    self.name = "name of extension"
+    self.app = app
+  def run(self):
+    @self.app.route("/")
+    def index():
+      return "hi!"
+    @self.app.route("/hello/")
+    def hello():
+      return str(self.app.config)
+
+def setup(app):
+  ext = extension(app)
+  ext.run()
+```
+the object app is given to the function setup
+similarly it can also be used as:
+```python
+import ports
+from ports import managers
+
+def extension(app):
+  @app.route("/")
+  def index():
+    return "hi!"
+  @app.route("/hello/")
+  def hello():
+    return str(app.config)
+
+def setup(app):
+  run(app)
+```
