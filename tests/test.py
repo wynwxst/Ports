@@ -6,7 +6,8 @@ app = APP()
 app.db["todo"] = {}
 app.db["todo"]["1"] = "Add debug mode"
 app.db["todo"]["2"] = "Add markdown support"
-app.db["todo"]["[☑️]3"] = "fix whatever is wrong with cookies in pip mod, maybe make requests and clone from git"
+app.db["todo"]["[☑️]3"] = "fix whatever is wrong with args"
+app.db["todo"]["4"] = "idea: add time to print(request.method)"
 
 @app.route("/")
 def index():

@@ -1,7 +1,4 @@
-"""
- Implements a simple HTTP/1.0 Server
 
-"""
 from typing import Callable, Dict, Optional, Pattern, Set, Tuple, List, Union
 import re
 import socket
@@ -25,7 +22,34 @@ import functools
 import mimetypes
 from datetime import datetime
 
+def loadModule(moduleName):
+    module = None
+    try:
+        import sys
+        del sys.modules[moduleName]
+    except BaseException as err:
+        pass
+    try:
+        import importlib
+        module = importlib.import_module(moduleName)
+    except BaseException as err:
+        serr = str(err)
+        print("Error to load the module '" + moduleName + "': " + serr)
+    return module
 
+def reloadModule(moduleName):
+    module = loadModule(moduleName)
+    moduleName, modulePath = str(module).replace("' from '", "||").replace("<module '", '').replace("'>", '').split("||")
+    if (modulePath.endswith(".pyc")):
+        import os
+        os.remove(modulePath)
+        module = loadModule(moduleName)
+    return module
+
+def getInstance(moduleName, param1, param2, param3):
+    module = reloadModule(moduleName)
+    instance = eval("module." + moduleName + "(param1, param2, param3)")
+    return instance
 
 FILE_RESPONSE_TEMPLATE = """\
 HTTP/1.1 200 OK
@@ -498,30 +522,33 @@ class localStorage:
 class tools:
   def add_file(path,sock,aath=None):
     path = f"{path}"
-    with open(path, "rb") as f:
-      stat = os.fstat(f.fileno())
-      content_type, encoding = mimetypes.guess_type(path)
-      if content_type is None:
-          content_type = "application/octet-stream"
-    
-      if encoding is not None:
-          content_type += f"; charset={encoding}"
-    
-      response_headers = FILE_RESPONSE_TEMPLATE.format(
-          content_type=content_type,
-          content_length=stat.st_size,
-      ).encode("ascii")
-    
-      sock.sendall(response_headers)
-      sock.sendfile(f)
+    try:
+      with open(path, "rb") as f:
+        stat = os.fstat(f.fileno())
+        content_type, encoding = mimetypes.guess_type(path)
+        if content_type is None:
+            content_type = "application/octet-stream"
+      
+        if encoding is not None:
+            content_type += f"; charset={encoding}"
+      
+        response_headers = FILE_RESPONSE_TEMPLATE.format(
+            content_type=content_type,
+            content_length=stat.st_size,
+        ).encode("ascii")
+      
+        sock.sendall(response_headers)
+        sock.sendfile(f)
+    except:
+      return "ERROR"
   def get_addr():
     return str(Ports.client["ip"])
   def get_hostname():
     return str(Ports.client["name"])
   def send_file(file):
     Ports.sendrn = True
-    tools.add_file(file,Ports.sock)
-    return ""
+    x = tools.add_file(file,Ports.sock)
+    return x
     
 
   def render_template(template,vars={}):
@@ -731,8 +758,9 @@ class Ports:
       method = request.method
       args = None
       """Handles the HTTP request."""
+      timern = datetime.now()
 
-      print(f"{request.method} {request.path}")
+      print(f"{request.method} {request.path} at {timern}")
       if "?" in filename:
         args = filename.split("?")
         filename = args[0]
@@ -801,6 +829,11 @@ class Ports:
       host = Ports.config["host"]
     if "port" in Ports.config:
       port = Ports.config["port"]
+    for ext in globals.extensions:
+      with open(ext) as x:
+        content = x.read()
+        exec(f"{content}\nsetup(appkey)",{"appkey":globals.app})
+
     Ports.config["host"] = host
     Ports.config["port"] = port
     server = HTTPServer(host,port,worker_count)
@@ -934,22 +967,40 @@ class HTTPServer:
             worker.join(timeout=30)
 
 
+class managers:
 
+  class extensions:
 
-        
+    def register(plugin):
+      globals.extensions.append(plugin)
+    def regall(dir):
+      for file in os.listdir(dir):
+        globals.extensions.append(file)
+
     
     
     
+class globals:
+  extensions = []
+  app = ""
 
 def APP(name=__name__):
   print(f"starting {name}!")
   Ports.config["name"] = name
   Ports.config["static"] = False
-  return Ports
+  globals.app = Ports
+  return globals.app
 
-def static_APP(name=__name__):
+def static_APP(name=__name__,path=""):
   print(f"starting {name}!")
   Ports.config["name"] = name
 
   Ports.config["static"] = True
-  return Ports
+  globals.app = Ports
+  return globals.app
+
+try:
+  if sys.argv[1] == "run":
+    os.system(f"python {os.getcwd()}/app.py")
+except:
+  ok = 'ok'

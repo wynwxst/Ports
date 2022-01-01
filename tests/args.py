@@ -5,6 +5,7 @@ Ports = APP()
 
 @Ports.route("/")
 def index(**args): # by default args will return {}
+  print(args)
   if args == {}:
     return "No args"
   if "name" not in args:
