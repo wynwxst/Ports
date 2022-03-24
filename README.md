@@ -191,5 +191,5 @@ def extension(app):
     return str(app.config)
 
 def setup(app):
-  run(app)
+  extension(app)
 ```
