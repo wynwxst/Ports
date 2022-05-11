@@ -1,16 +1,16 @@
 # PORTS
-The modern flask alternative
+A scalable, customizable, configurable, programmable, webserver framework
 
 # Installation
-Simply install python and type `pip install Ports.py`
+Simply install python and type `pip install ports.py`
 
 # Usage
 
 Start a static server in three lines:
 ```python
 from ports import APP, static_APP
-Ports = static_APP()
-Ports.run("0.0.0.0",8080)
+app = static_APP()
+app.run()
 ```
 then all files in `www/` will be hosted
 
@@ -19,47 +19,66 @@ Start a dynamic server:
 from ports import APP, static_APP
 
 
-Ports = APP()
+app = APP()
 
-@Ports.route("/")
+@app.route("/")
 def index():
   return "hi!"
+@app.route("/hi/") # unlike flask you can put either /hi or /hi/ and it will work fine
+def hi():
+  return "hello"
+@app.route("/bye") # will still work
+def bye():
+  return "bye"
 
-Ports.run("0.0.0.0",8080)
+app.run()
 
 ```
-Access localstorage:
+
+Make your own handler/framework:
 ```python
-from ports import localStorage
-ls = localStorage("yourwebsite.com","JSON") #sqlite and text are avaliable
+from ports import APP, static_APP, tools
+
+
+app = APP()
+app.on("request")
+def frame(app,req):
+  if req.method == "GET":
+    if req.path == "/":
+      return "Index (/)"
+app.run()
 ```
-localStorage Options:
 
-
-localStorage.getItem(item)
-
-localStorage.setItem(item, value)
-
-localStorage.removeItem(item)
-
-localStorage.clear()
-
-Use a .env  and a json db system:
+Make a response:
 ```python
-from ports import APP, static_APP
+from ports import APP, static_APP, tools, Response
 
 
-Ports = APP()
-Ports.env["key"] = "example"
-
-Ports.db["visits"] = {}
-
-@Ports.route("/")
+app = APP()
+app.route("/")
 def index():
-  Ports.db["visits"] += 1
-  return "hi!"
+  resp = Response(status="200 OK", content="hello world thru resp")
+  resp.headers.add("key","value")
+  return resp
+app.run()
+```
 
-Ports.run("0.0.0.0",8080)
+Events:
+```python
+from ports import APP, static_APP, tools, Response
+
+
+app = APP()
+app.route("/")
+def index():
+  resp = Response(status="200 OK", content="hello world thru resp")
+  resp.headers.add("key","value")
+  return resp
+@app.on("bind")
+def binded(sock):
+  print("connected")
+# all events can be accessed through app.all_events
+app.run()
 ```
 
 Template rendering:
@@ -67,13 +86,13 @@ Template rendering:
 from ports import APP, static_APP, tools
 
 
-Ports = APP()
+app = APP()
 
-@Ports.route("/")
+@app.route("/")
 def index():
   return tools.render_template("index.html")
 
-Ports.run("0.0.0.0",8080)
+app.run("0.0.0.0",8080)
 ```
 Renders `templates/index.html` ^
 
@@ -82,19 +101,19 @@ Arguments:
 from ports import APP, static_APP
 
 
-Ports = APP()
+app = APP()
 
-@Ports.route("/")
-def index(**args): # by default args will return {}
-  if args == {}:
+@app.route("/")
+def index(req):
+  if req.args == {}:
     return "No args"
-  if "name" not in args:
+  if "name" not in req.args:
     return "please give arg 'name'"
-  name = args["name"]
+  name = req.args["name"]
   return f"hello {name}"
-  
 
-Ports.run("0.0.0.0",8080)
+
+app.run("0.0.0.0",8080)
 ```
 
 Cookies:
@@ -103,18 +122,18 @@ from ports import APP, static_APP
 
 
 
-Ports = APP()
+app = APP()
 
-@Ports.route("/")
+@app.route("/")
 def index():
-  cookiejar = Ports.Cookies.get_all() # return in json name:value
-  value = Ports.Cookies.get("pwd")
+  cookiejar = app.Cookies.get_all() # return in json name:value
+  value = app.Cookies.get("pwd")
   if "username" in cookiejar:
-    Ports.Cookies.delete("username")
+    app.Cookies.delete("username")
   else:
-    Ports.Cookies.set("username","example")
+    app.Cookies.set("username","example")
 
-Ports.run("0.0.0.0",8080)
+app.run("0.0.0.0",8080)
 ```
 
 Send file:
@@ -123,14 +142,14 @@ from ports import APP, static_APP
 from ports import tools
 
 
-Ports = APP()
-@Ports.route("/")
+app = APP()
+@app.route("/")
 def index():
   return "Favicon Activated"
-@Ports.route("/favicon.ico")
+@app.route("/favicon.ico")
 def favicon():
   return tools.send_file("favicon.ico")
-Ports.run("0.0.0.0",8080)
+app.run("0.0.0.0",8080)
 ```
 
 Extensions:

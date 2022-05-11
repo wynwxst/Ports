@@ -25,18 +25,7 @@ def todo():
     tr += f"\n<p>{item}. {val}</p>\n"
   return tr
 
-@app.route("/hello/",args=["name"])
-def hello(**args):
-  params = args
-  name = ":("
 
-  if params == {} or params == None:
-    name = ""
-  elif "name" not in params:
-    name = "NOT GIVEN :("
-  else:
-    name = params["name"]
-  return f"hello {name}"
 
 @app.route("/favicon.ico")
 def favicon():
