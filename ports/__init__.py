@@ -461,6 +461,8 @@ import sys
 import functools
 import mimetypes
 from datetime import datetime
+import asyncio
+import websockets
 
 
 
@@ -1075,6 +1077,94 @@ class Events:
         sock.shutdown(socket.SHUT_RDWR)
         sock.close()
         return
+class Socket:
+    def __init__(self,app):
+        self.app=app
+        self.sockets = {}
+        self.port = app.config["port"] + 1
+        self.host = app.config["host"]
+        self.insense = {}
+    def connect(self,eve=None,con=None):
+        import ssl
+        async def dec(event,conn):
+            ev = event.lower()
+            if event == None:
+                event = ""
+            if event.startswith("event:") == False:
+                event = "event:" + event
+            if event == None and conn != None or event == "event:" and conn != None:
+                event = conn
+            print(event)
+            uri = f"ws://{self.host}:{self.port}"
+            async with websockets.connect(uri) as websocket:
+
+                if "pre:" + ev in self.sockets:
+                    event = self.sockets["pre:" + ev]()
+                await websocket.send(event)
+                if "post:" + ev in self.sockets:
+                    event = self.sockets["post:" + ev]()
+
+
+                greeting = await websocket.recv()
+                return greeting
+        return asyncio.run(dec(eve,con))
+
+
+
+    # create handler for each connection
+    def on(self,event) -> Callable[[RouteHandlerT], RouteHandlerT]:
+
+        def decor(handler: RouteHandlerT) -> RouteHandlerT:
+
+            self.sockets[event.lower()] = handler
+
+
+        return decor
+
+    async def handler(self,websocket, path):
+
+
+        data = await websocket.recv()
+        d = None
+        x = data.split()
+        f = False
+        wf = False
+        for i in x:
+            if f == False:
+                if i.lower().startswith("event:"):
+                    d = i.replace("event:","")
+                    f = True
+                    data = data.replace(i,"",1)
+
+        rep = "no response"
+        print("d: " + str(d))
+        print(str(self.sockets))
+
+
+        if "*" in self.sockets and d == None or d == "*":
+            rep = await self.sockets["*"](data,path)
+            d = ""
+            wf = True
+
+        if d.lower() in self.sockets and wf == False:
+            rep = await self.sockets[d.lower()](data,path)
+            wf = True
+
+
+        if wf == False:
+            if "404" not in self.sockets:
+                rep = "error: socket not found"
+            else:
+                rep = await self.sockets["404"](data,path)
+
+        await websocket.send(rep)
+    async def main(self):
+        async with websockets.serve(self.handler, self.host, self.port):
+            await asyncio.Future()
+
+    def run(self):
+        print(f"Socket server listening on {self.host}:{self.port}")
+        asyncio.run(self.main())
 
 class Ports:
   running = True
