@@ -17,8 +17,9 @@ app = APP()
 
 
 @app.route("/")
-def index():
-    return s.connect(eve="connect")
+def index(req):
+    tg = req.args.get("greet","no greeting :(")
+    return s.connect(sock="connect",content=tg,path="index")
 @app.route("/req/")
 def requ(req):
     return f"{req.method} at {req.path} with args as {req.args} and headers:\n{req.headers._headers}"
@@ -34,7 +35,7 @@ def killer():
     return "killed!"
 
 def run():
-    app.run()
+    app.run(port=8181)
 
 
 
@@ -44,8 +45,11 @@ s = Socket(app)
 
 @s.on("connect")
 async def all(data,path):
+    if path == "/index":
+        return "custom hello for / due to path " + data
+
     print("received! - " + data)
-    return "response @ connected"
+    return "data : " + data
 
 s.run()
 

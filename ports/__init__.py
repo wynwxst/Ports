@@ -1084,8 +1084,11 @@ class Socket:
         self.port = app.config["port"] + 1
         self.host = app.config["host"]
         self.insense = {}
-    def connect(self,eve=None,con=None):
+        self.key = app.env.get("key","default")
+    def connect(self,sock=None,content=None,path="/"):
         import ssl
+        if path.startswith("/") == False:
+            path = "/" + path
         async def dec(event,conn):
             ev = event.lower()
             if event == None:
@@ -1094,8 +1097,10 @@ class Socket:
                 event = "event:" + event
             if event == None and conn != None or event == "event:" and conn != None:
                 event = conn
-            print(event)
-            uri = f"ws://{self.host}:{self.port}"
+            if event != None and conn != None:
+                event = event + " " + conn
+            uri = f"ws://{self.host}:{self.port}" + path
+            event += f"\nkey:{self.key}"
             async with websockets.connect(uri) as websocket:
 
                 if "pre:" + ev in self.sockets:
@@ -1107,7 +1112,7 @@ class Socket:
 
                 greeting = await websocket.recv()
                 return greeting
-        return asyncio.run(dec(eve,con))
+        return asyncio.run(dec(sock,content))
 
 
 
@@ -1125,6 +1130,11 @@ class Socket:
 
 
         data = await websocket.recv()
+        key = data.split("\nkey:")[-1]
+        data = data.replace("\nkey:" + key,"")
+        
+        if key != self.key:
+            return await websocket.send("")
         d = None
         x = data.split()
         f = False
@@ -1134,11 +1144,9 @@ class Socket:
                 if i.lower().startswith("event:"):
                     d = i.replace("event:","")
                     f = True
-                    data = data.replace(i,"",1)
+                    data = data.replace(i + " ","",1)
 
         rep = "no response"
-        print("d: " + str(d))
-        print(str(self.sockets))
 
 
         if "*" in self.sockets and d == None or d == "*":
