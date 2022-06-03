@@ -445,6 +445,7 @@ import socket
 import requests
 import json
 import io
+import threading
 import typing
 from functools import partial
 import random
@@ -1015,10 +1016,11 @@ class tools:
 
 
   def render_template(template,vars={}):
-    fin = open('templates/' + template)
+    dir = Ports.config.get("static_dir")
+    fin = open(dir + '/' + template)
     content = fin.read()
     amt = 0
-    finder = open('templates/' + template)
+    finder = open(dir + '/' + template)
     lines = finder.readlines()
     lvars = {}
     found = False
@@ -1031,7 +1033,7 @@ class tools:
       locl = {}
       fund = False
       if found == True:
-        if line.startswith("|\|"):
+        if line.startswith("<%>"):
           exec(func,{},locl)
           lvars[str(amt)] = locl
           func = ""
@@ -1042,18 +1044,26 @@ class tools:
           func += line
       if line != "\n" and found == False:
 
-        if line.startswith("|\|"):
+        if line.startswith("<%>"):
           found = True
           fund = False
       if fund == True:
         found = False
+    vars["webapp"] = Ports
+    vars["webport"] = Ports.config["port"]
+    vars["webhost"] = Ports.config["host"]
+
     for item in vars:
-      content = content.replace(f"[[{item}]]",str(vars[item]))
+      if item != "webapp":
+          
+          content = content.replace(f"[[{item}]]",str(exec(vars[item],lvars,vars)))
+          content = content.replace(f"<{item}>",str(exec(item,lvars,vars)))
 
     for itee in lvars:
       for var in lvars[itee]:
-        content = content.replace(f"[[{var}]]",str(lvars[itee][var]))
-    content = content.replace("|\|\n","")
+        content = content.replace(f"[[{var}]]",str(exec(lvars[itee][var],lvars,vars)))
+        content = content.replace(f"<{var}>",str(exec(var,lvars,vars)))
+    content = content.replace("<%>\n","")
 
 
 
@@ -1081,11 +1091,15 @@ class Socket:
     def __init__(self,app):
         self.app=app
         self.sockets = {}
-        self.port = app.config["port"] + 1
-        self.host = app.config["host"]
+        self.port = app.config.get("port",0) + 1
+        self.host = app.config.get("host",0)
         self.insense = {}
         self.key = app.env.get("key","default")
+    def refresh(self):
+        self.port = self.app.config.get("port",0) + 1
+        self.host = self.app.config.get("host","0.0.0.0")
     def connect(self,sock=None,content=None,path="/"):
+        self.refresh()
         import ssl
         if path.startswith("/") == False:
             path = "/" + path
@@ -1132,7 +1146,7 @@ class Socket:
         data = await websocket.recv()
         key = data.split("\nkey:")[-1]
         data = data.replace("\nkey:" + key,"")
-        
+
         if key != self.key:
             return await websocket.send("")
         d = None
@@ -1170,7 +1184,13 @@ class Socket:
         async with websockets.serve(self.handler, self.host, self.port):
             await asyncio.Future()
 
-    def run(self):
+    def run(self,**kwargs):
+        self.refresh()
+        def thread_function():
+            self.app.run(**kwargs)
+        x = threading.Thread(target=thread_function,args=(),daemon=True)
+        x.start()
+        self.refresh()
         print(f"Socket server listening on {self.host}:{self.port}")
         asyncio.run(self.main())
 
@@ -1549,8 +1569,8 @@ class HTTPServer:
             server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             server_sock.bind((self.host, self.port))
             server_sock.listen(self.worker_backlog)
-            LOGGER.info("Listening on %s:%d...", self.host, self.port)
-            print(f"Listening on {self.host}:{self.port}...")
+            LOGGER.info("WebServer Listening on %s:%d...", self.host, self.port)
+            print(f"WebServer Listening on {self.host}:{self.port}...")
             if "bind" in Ports.events:
                 Ports.events["bind"]()
 

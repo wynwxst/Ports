@@ -11,15 +11,14 @@ tm = Tasks()
 
 app = APP()
 
-
+app.config["static_dir"] = "www"
 
 
 
 
 @app.route("/")
 def index(req):
-    tg = req.args.get("greet","no greeting :(")
-    return s.connect(sock="connect",content=tg,path="index")
+    return s.connect(sock="connect",content="my name is joe",path="/")
 @app.route("/req/")
 def requ(req):
     return f"{req.method} at {req.path} with args as {req.args} and headers:\n{req.headers._headers}"
@@ -34,13 +33,7 @@ def killer():
     app.kill()
     return "killed!"
 
-def run():
-    app.run(port=8181)
 
-
-
-t = tm.create(target=run,daemon=True)
-t.start()
 s = Socket(app)
 
 @s.on("connect")
@@ -51,9 +44,9 @@ async def all(data,path):
     print("received! - " + data)
     return "data : " + data
 
-s.run()
+s.run(port=8181)
 
-socketrun()
+
 while True:
     p = app.config["port"]
     h = app.config["host"]
