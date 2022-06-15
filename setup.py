@@ -9,7 +9,7 @@ setup(name='ports.py',
       license='MIT',
       packages=['ports'],
     install_requires=[
-        'socket',"requests","sqlite3","websockets"
+        "requests","sqlite3","websockets"
         ],
     keywords=['webserver', 'flask alternative','ports'],
     classifiers=["Programming Language :: Python :: 3"],
